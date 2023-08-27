@@ -1,0 +1,599 @@
+#
+#
+# @Author: Rafey Islam
+# @Date: 2023-08-09
+# @Last Modified: 2023-08-26
+# @Email: rafey04@hotmail.com
+#
+
+import tkinter as tk
+from tkinter import messagebox, font
+from tkinter import *
+import requests
+import pandas as pd
+import matplotlib.pyplot as plt
+from bs4 import BeautifulSoup
+
+pd.set_option('display.max_rows', None)
+pd.set_option('display.max_columns', None)
+pd.set_option('display.expand_frame_repr', False)
+
+headers = {'User-Agent': "rafey04@hotmail.com"}
+
+
+
+def annualReports(cik):
+    """
+    This function organizes the most recent 10-K and 10-Q forms in a dataframe
+
+    :param cik: Number used to get access to companies data through API.
+    :return: DataFrame of different forms
+    """
+
+    try:
+        # Create variables/containers to hold information and request data from API
+        listCounter = 0
+        list10Q = [0, 0, 0]
+        companyReports = requests.get(f"https://data.sec.gov/api/xbrl/companyconcept/CIK{cik}/us-gaap/Assets.json", headers=headers)
+        companyData = (companyReports.json()['units']['USD'])
+
+        # Loop through all forms
+        for i in range(len(companyData)):
+            if "frame" in companyData[i]:
+                del companyData[i]['frame']
+            # Store values for 10-K forms in a list and store final 10-K form
+            if companyData[i]['form'] == "10-K":
+                for j in companyData[i]:
+                    companyData[i][j] = [companyData[i][j]]
+                assets10K = (companyData[i])
+
+            # Find the 3 quarters (10-Q forms) from 2022 and store them
+            if companyData[i]['form'] == "10-Q" and companyData[i]['fy'] == 2022:
+                if listCounter == 3:
+                    listCounter = 0
+                list10Q[listCounter] = companyData[i]
+                listCounter += 1
+
+
+        # Store all forms inside a DataFrame and return
+        assets10form = pd.DataFrame(assets10K)
+        for i in list10Q:
+            assets10form.loc[len(assets10form)] = i
+
+        ## FRONT END ##
+        screen = tk.Tk()
+        results = Frame(screen)
+        results.grid(row=0,column=0,sticky="nsew")
+
+        column_names = assets10form.columns.tolist()
+        for i, col in enumerate(column_names):
+            text = Text(results, width=20, height=2, bg="#9BC2E6")
+            text.grid(row=6, column=i)
+            text.insert(INSERT, col)
+
+        n_rows = assets10form.shape[0]
+        n_cols = assets10form.shape[1]
+        for i in range(n_rows):
+            for j in range(n_cols):
+                text = Text(results, width=20, height=2)
+                text.grid(row=i+7, column=j)
+                text.insert(INSERT, assets10form.loc[i][j])
+
+        results.tkraise()
+        screen.geometry("1150x175")
+        screen.title("Annual Reports")
+        screen.resizable(False, False)
+        screen.mainloop()
+
+    except Exception as e:
+        messagebox.showwarning("Warning", "Not available for this company")
+
+
+
+def companyStats(cik):
+    """
+    This function organizes relevant company statistics in a dataframe
+
+    :param cik: Number used to get access to companies data through API.
+    :return: DataFrame of statistics
+    """
+
+    try:
+        # Create an empty container to store DataFrame index names and request data from API
+        new_index = []
+        companyData = requests.get(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json", headers=headers)
+
+        # Check if assets is visible information
+        if 'Assets' in companyData.json()['facts']['us-gaap']:
+
+            # Store asset forms and add assets to index container
+            assets = companyData.json()['facts']['us-gaap']['Assets']['units']['USD']
+            new_index.append('Assets')
+
+            # Loop through all forms
+            for i in range(len(assets)):
+                if "frame" in assets[i]:
+                    del assets[i]['frame']
+                # Store values for 10-K forms in a list and store final 10-K form
+                if assets[i]['form'] == "10-K":
+                    for j in assets[i]:
+                        assets[i][j] = [assets[i][j]]
+                    assetsStats = assets[i]
+
+        # Create DataFrame
+        stats = pd.DataFrame(assetsStats)
+
+        # Check if liabilities is visible information
+        if 'Liabilities' in companyData.json()['facts']['us-gaap']:
+
+            # Store liability forms and add liabilities to index container
+            liabilities = companyData.json()['facts']['us-gaap']['Liabilities']['units']['USD']
+            new_index.append('Liabilities')
+
+            # Loop through all forms
+            for i in range(len(liabilities)):
+
+                # Store final 10-K form and add it to the DataFrame
+                if liabilities[i]['form'] == "10-K":
+                    liabilitiesStats = liabilities[i]
+            stats.loc[len(stats)] = liabilitiesStats
+
+        # Check if cash is visible information
+        if 'Cash' in companyData.json()['facts']['us-gaap']:
+
+            # Store cash forms and add cash to index container
+            cash = companyData.json()['facts']['us-gaap']['Cash']['units']['USD']
+            new_index.append('Cash')
+
+            # Loop through all forms
+            for i in range(len(cash)):
+
+                # Store final 10-K form and add it to the DataFrame
+                if cash[i]['form'] == "10-K":
+                    cashStats = cash[i]
+            stats.loc[len(stats)] = cashStats
+
+        # Check if operating expenses is visible information
+        if 'OperatingExpenses' in companyData.json()['facts']['us-gaap']:
+
+            # Store operating expense forms and add operating expenses to index container
+            operatingExpenses = companyData.json()['facts']['us-gaap']['OperatingExpenses']['units']['USD']
+            new_index.append('Operating Expenses')
+
+            # Loop through all forms
+            for i in range(len(operatingExpenses)):
+
+                # Store final 10-K form and add it to the DataFrame
+                if operatingExpenses[i]['form'] == "10-K":
+                    operatingExpensesStats = operatingExpenses[i]
+            stats.loc[len(stats)] = operatingExpensesStats
+
+        # Check if gross profit is visible information
+        if 'GrossProfit' in companyData.json()['facts']['us-gaap']:
+
+            # Store gross profit forms and add gross profit to index container
+            grossProfit = companyData.json()['facts']['us-gaap']['GrossProfit']['units']['USD']
+            new_index.append('Gross Profit')
+
+            # Loop through all forms
+            for i in range(len(grossProfit)):
+
+                # Store final 10-K form and add it to the DataFrame
+                if grossProfit[i]['form'] == "10-K":
+                    grossProfitStats = grossProfit[i]
+            stats.loc[len(stats)] = grossProfitStats
+
+        ## FRONT END ##
+        screen = tk.Tk()
+        results = Frame(screen, bg="#A7C7E7")
+        results.grid(row=0, column=0, sticky="nsew")
+
+        column_names = stats.columns.tolist()
+        for i, col in enumerate(column_names):
+            i+=1
+            text = Text(results, width=20, height=2, bg="#9BC2E6")
+            text.grid(row=6, column=i)
+            text.insert(INSERT, col)
+
+        count = 7
+        for row in new_index:
+            text = Text(results, width=20, height=2, bg="#9BC2E6")
+            text.grid(row=count, column=0)
+            text.insert(INSERT, row)
+            count+=1
+
+        n_rows = stats.shape[0]
+        n_cols = stats.shape[1]
+        for i in range(n_rows):
+            for j in range(n_cols):
+                text = Text(results, width=20, height=2)
+                text.grid(row=i + 7, column=j+1)
+                text.insert(INSERT, stats.loc[i][j])
+
+        results.tkraise()
+        screen.geometry("1300x215")
+        screen.title("Company Statistics")
+        screen.resizable(False, False)
+        screen.mainloop()
+
+    except Exception as e:
+        messagebox.showwarning("Warning", "Not available for this company")
+
+
+
+def statsGraphed(cik):
+    """
+    This function plots relevant company statistics in line & bar graphs
+
+    :param cik: Number used to get access to companies data through API.
+    :return: Information graphed
+    """
+
+    try:
+        # Request/store data from API and check if assets is visible information
+        companyData = requests.get(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json", headers=headers)
+        if 'Assets' in companyData.json()['facts']['us-gaap']:
+            # Create a DataFrame of asset forms and store only 10K forms
+            assetData = pd.DataFrame.from_dict(companyData.json()['facts']['us-gaap']['Assets']['units']['USD'])
+            assetData = assetData[assetData.form == "10-K"]
+            assetData = assetData.reset_index(drop=True)
+
+            # Plot in a line graph with date as X and value as Y
+            # Label graph and ensure exact Y values are being displayed
+            plt.plot(assetData['end'], assetData['val'], marker='o', linestyle='-', color='b')
+            plt.xlabel('Date')
+            plt.ylabel('$')
+            plt.title('Company Asset Valuation Over Time')
+            plt.yticks(assetData['val'], assetData['val'])
+            plt.show()
+
+            # Plot in a bar graph with date as X and value as Y
+            # Label graph and ensure exact Y values are being displayed
+            plt.bar(assetData['end'], assetData['val'], color='green')
+            plt.xlabel('Date')
+            plt.ylabel('$')
+            plt.title('Company Asset Valuation Over Time')
+            plt.yticks(assetData['val'], assetData['val'])
+            plt.show()
+
+        # Check if liabilities is visible information
+        if 'Liabilities' in companyData.json()['facts']['us-gaap']:
+            # Create a DataFrame of liability forms and store only 10K forms
+            liabilitiesData = pd.DataFrame.from_dict(companyData.json()['facts']['us-gaap']['Liabilities']['units']['USD'])
+            liabilitiesData = liabilitiesData[liabilitiesData.form == "10-K"]
+            liabilitiesData = liabilitiesData.reset_index(drop=True)
+
+            # Plot in a line graph with date as X and value as Y
+            # Label graph and ensure exact Y values are being displayed
+            plt.plot(liabilitiesData['end'], liabilitiesData['val'], marker='o', linestyle='-', color='b')
+            plt.xlabel('Date')
+            plt.ylabel('$')
+            plt.title('Company Liability Valuation Over Time')
+            plt.yticks(liabilitiesData['val'], liabilitiesData['val'])
+            plt.show()
+
+            # Plot in a bar graph with date as X and value as Y
+            # Label graph and ensure exact Y values are being displayed
+            plt.bar(liabilitiesData['end'], liabilitiesData['val'], color='green')
+            plt.xlabel('Date')
+            plt.ylabel('$')
+            plt.title('Company Liability Valuation Over Time')
+            plt.yticks(liabilitiesData['val'], liabilitiesData['val'])
+            plt.show()
+
+        # Check if cash is visible information
+        if 'Cash' in companyData.json()['facts']['us-gaap']:
+            # Create a DataFrame of cash forms and store only 10K forms
+            cashData = pd.DataFrame.from_dict(companyData.json()['facts']['us-gaap']['Cash']['units']['USD'])
+            cashData = cashData[cashData.form == "10-K"]
+            cashData = cashData.reset_index(drop=True)
+
+            # Plot in a line graph with date as X and value as Y
+            # Label graph and ensure exact Y values are being displayed
+            plt.plot(cashData['end'], cashData['val'], marker='o', linestyle='-', color='b')
+            plt.xlabel('Date')
+            plt.ylabel('$')
+            plt.title('Company Cash Valuation Over Time')
+            plt.yticks(cashData['val'], cashData['val'])
+            plt.show()
+
+            # Plot in a bar graph with date as X and value as Y
+            # Label graph and ensure exact Y values are being displayed
+            plt.bar(cashData['end'], cashData['val'], color='green')
+            plt.xlabel('Date')
+            plt.ylabel('$')
+            plt.title('Company Cash Valuation Over Time')
+            plt.yticks(cashData['val'], cashData['val'])
+            plt.show()
+
+        # Check if operating expenses is visible information
+        if 'OperatingExpenses' in companyData.json()['facts']['us-gaap']:
+            # Create a DataFrame of operating expenses forms and store only 10K forms
+            operatingExpensesData = pd.DataFrame.from_dict(
+                companyData.json()['facts']['us-gaap']['OperatingExpenses']['units']['USD'])
+            operatingExpensesData = operatingExpensesData[operatingExpensesData.form == "10-K"]
+            operatingExpensesData = operatingExpensesData.reset_index(drop=True)
+
+            # Plot in a line graph with date as X and value as Y
+            # Label graph and ensure exact Y values are being displayed
+            plt.plot(operatingExpensesData['end'], operatingExpensesData['val'], marker='o', linestyle='-', color='b')
+            plt.xlabel('Date')
+            plt.ylabel('$')
+            plt.title('Company Operating Expenses Valuation Over Time')
+            plt.yticks(operatingExpensesData['val'], operatingExpensesData['val'])
+            plt.show()
+
+            # Plot in a bar graph with date as X and value as Y
+            # Label graph and ensure exact Y values are being displayed
+            plt.bar(operatingExpensesData['end'], operatingExpensesData['val'], color='green')
+            plt.xlabel('Date')
+            plt.ylabel('$')
+            plt.title('Company Operating Expenses Valuation Over Time')
+            plt.yticks(operatingExpensesData['val'], operatingExpensesData['val'])
+            plt.show()
+
+        # Check if gross profit is visible information
+        if 'GrossProfit' in companyData.json()['facts']['us-gaap']:
+            # Create a DataFrame of gross profit forms and store only 10K forms
+            grossProfitData = pd.DataFrame.from_dict(companyData.json()['facts']['us-gaap']['GrossProfit']['units']['USD'])
+            grossProfitData = grossProfitData[grossProfitData.form == "10-K"]
+            grossProfitData = grossProfitData.reset_index(drop=True)
+
+            # Plot in a line graph with date as X and value as Y
+            # Label graph and ensure exact Y values are being displayed
+            plt.plot(grossProfitData['end'], grossProfitData['val'], marker='o', linestyle='-', color='b')
+            plt.xlabel('Date')
+            plt.ylabel('$')
+            plt.title('Company Gross Profit Valuation Over Time')
+            plt.yticks(grossProfitData['val'], grossProfitData['val'])
+            plt.show()
+
+            # Plot in a bar graph with date as X and value as Y
+            # Label graph and ensure exact Y values are being displayed
+            plt.bar(grossProfitData['end'], grossProfitData['val'], color='green')
+            plt.xlabel('Date')
+            plt.ylabel('$')
+            plt.title('Company Gross Profit Valuation Over Time')
+            plt.yticks(grossProfitData['val'], grossProfitData['val'])
+            plt.show()
+
+    except Exception as e:
+        messagebox.showwarning("Warning", "Not available for this company")
+
+
+
+def financialRatios(ticker):
+    """
+    This function scrapes financial ratios from Yahoo Finance and stores them in a DataFrame
+
+    :param ticker: Code used to get access to companies data through API.
+    :return: DataFrame of financial ratios
+    """
+
+    try:
+        # Create containers to store different data
+        values = []
+        keys = ["Market Cap", "Enterprise Value", "Trailing P/E", "Forward P/E", "PEG Ratio", "Price/Sales",
+                      "Price/Book", "Enterprise Revenue", "Enterprise EBITDA"]
+
+        # Access Yahoo Finance and create object for parsing (HTML code)
+        companyData = requests.get(f"https://ca.finance.yahoo.com/quote/{ticker}/key-statistics", headers=headers)
+        html = BeautifulSoup(companyData.text, "html.parser")
+
+        # Loop through first table (table has all the info)
+        # Append all the information to values and stop once 9 values from table are added
+        counter = 0
+        for i in html.find_all('td', {'class': 'Fw(500) Ta(end) Pstart(10px) Miw(60px)'}):
+            if counter == 9:
+                break
+            values.append(i.text)
+            counter += 1
+
+        ## FRONT END ##
+        screen = tk.Tk()
+        results = Frame(screen)
+        results.grid(row=0, column=0, sticky="nsew")
+
+        for i, row in enumerate(keys):
+            i += 1
+            text = Text(results, width=20, height=2, bg="#9BC2E6")
+            text.grid(row=i, column=0)
+            text.insert(INSERT, row)
+
+        for i, row in enumerate(values):
+            i += 1
+            text = Text(results, width=20, height=2)
+            text.grid(row=i, column=1)
+            text.insert(INSERT, row)
+
+        results.tkraise()
+        screen.geometry("275x320")
+        screen.title("Financial Ratios")
+        screen.resizable(False, False)
+        screen.mainloop()
+
+    except Exception as e:
+        messagebox.showwarning("Warning", "Not available for this company")
+
+
+
+def findCompany():
+    """
+    This function searches for and accesses a companies records
+    :return: Nothing
+    """
+
+    # Request company data from API
+    tickers = requests.get("https://www.sec.gov/files/company_tickers.json", headers=headers)
+
+    # Loop until company is found and selected
+    found = False
+    empty = False
+    while not found:
+        company_name = companyName.get().lower().split()
+
+        # If user leaves input empty, this warning box pops up
+        if not company_name:
+            messagebox.showwarning("Warning","Input a company")
+            empty = True
+            break
+
+        # Loop through companies to find and confirm user input company
+        for i in tickers.json():
+            company = tickers.json()[i]
+            company_title = company['title'].split()
+            in_title = False
+
+            # Change every input & company word to lowercase and clean strings
+            for j in range(len(company_name)):
+                company_name[j] = company_name[j].lower()
+            for j in range(len(company_title)):
+                company_title[j] = company_title[j].lower()
+                company_title[j] = company_title[j].replace(",", "")
+
+            # If user input is one word then go through this
+            if len(company_name) == 1:
+                # Check if input word matches any word in company names
+                for j in company_title:
+                    if company_name[0] == j:
+                        in_title = True
+
+                # If input is in company name or input is the companies ticker then confirm if it's the correct company
+                if in_title or company_name[0] == company['ticker'].lower():
+                    confirm = messagebox.askyesno("Confirmation",
+                                                  f"Is {company['title']} the company you're looking for?")
+
+                    # If correct company then store needed information and break
+                    if confirm:
+                        company_CIK = str(company['cik_str'])
+                        company_TICKER = company['ticker'].upper()
+                        found = True
+                        break
+
+            # If user input is multiple words go through this
+            else:
+
+                # If input name equals company name confirm if it's the correct company
+                if company_name == company_title[0:len(company_name)]:
+                    confirm = messagebox.askyesno("Confirmation",
+                                                  f"Is {company['title']} the company you're looking for?")
+
+                    # If correct company then store needed information and break
+                    if confirm:
+                        company_CIK = str(company['cik_str'])
+                        company_TICKER = company['ticker'].upper()
+                        found = True
+                        break
+
+        # If company is not found/doesn't exist then display this warning
+        if not found:
+            messagebox.showwarning("Warning", "Company not found")
+            empty = True
+            break
+
+    # If company is successfully found then fix CIK number
+    if not empty:
+        while len(company_CIK) < 10:
+            company_CIK = "0" + company_CIK
+
+        ## FRONT END ##
+        root2 = Frame(window, bg="#40B5AD")
+        forms = Frame(window)
+        stats = Frame(window)
+        graph = Frame(window)
+        ratios = Frame(window)
+        root2.grid(row=0, column=0, sticky="nsew")
+        forms.grid(row=0, column=0, sticky="nsew")
+        stats.grid(row=0, column=0, sticky="nsew")
+        graph.grid(row=0, column=0, sticky="nsew")
+        ratios.grid(row=0, column=0, sticky="nsew")
+
+        labelFrame = LabelFrame(root2, bg="#119596")
+        labelFrame.pack()
+        buttonFrame = LabelFrame(root2, bg="#119596")
+        buttonFrame.pack(pady=20)
+
+        label = tk.Label(labelFrame, text="What would you like to know about the company?", font=("Century", 18, "bold"))
+        label.pack(padx=20, pady=20)
+
+        formsButton = tk.Button(buttonFrame, text="Annual Reports", command=lambda: annualReports(company_CIK), width=15,
+                                height=2, bg="#ADD8E6", font="Century", relief="ridge", border=8, cursor="hand2")
+        formsButton.grid(row=1, column=0, padx=10, pady=10)
+
+        statsButton = tk.Button(buttonFrame, text="Company Statistics", command=lambda: companyStats(company_CIK), width=15,
+                                height=2, bg="#ADD8E6", font="Century", relief="ridge", border=8, cursor="hand2")
+        statsButton.grid(row=1, column=1, padx=10, pady=10)
+
+        statsGraphedButton = tk.Button(buttonFrame, text="Graphed Statistics", command=lambda: statsGraphed(company_CIK),
+                                width=15, height=2, bg="#ADD8E6", font="Century", relief="ridge", border=8,cursor="hand2")
+        statsGraphedButton.grid(row=2, column=0, padx=10, pady=10)
+
+        fRatiosButton = tk.Button(buttonFrame, text="Financial Ratios", command=lambda: financialRatios(company_TICKER),
+                             width=15, height=2, bg="#ADD8E6", font="Century", relief="ridge", border=8, cursor="hand2")
+        fRatiosButton.grid(row=2, column=1, padx=10, pady=10)
+
+        backButton = tk.Button(buttonFrame, text="Back", command=lambda: root.tkraise(), bg="#ADD8E6", font="Century", relief="ridge", border=8, cursor="hand2")
+        backButton.grid(row=10, column=0, columnspan=2, pady=15)
+
+        root2.tkraise()
+
+
+
+
+## FRONT END ##
+window = tk.Tk()
+
+welcome = Frame(window, bg="#40B5AD")
+root = Frame(window, bg="#40B5AD")
+learn = Frame(window, bg="#40B5AD")
+welcome.grid(row=0,column=0,sticky="nsew")
+root.grid(row=0,column=0,sticky="nsew")
+learn.grid(row=0,column=0,sticky="nsew")
+
+labelFrame = LabelFrame(welcome, bg="#119596")
+labelFrame.pack()
+buttonFrame = LabelFrame(welcome, padx=100, pady=10, bg="#119596")
+buttonFrame.pack(pady=30)
+
+label = Label(labelFrame, text="Welcome to Rafey's Financial Insights app!", font=("Century", 18, "bold"))
+label.pack(padx=20, pady=40)
+continueButton = tk.Button(buttonFrame, text="Continue", command=lambda: root.tkraise(), width=8, height=2, bg="#ADD8E6", font="Century", relief="ridge", border=8, cursor="hand2")
+continueButton.pack(pady=10)
+learnButton = tk.Button(buttonFrame, text="Learn More", command=lambda: learn.tkraise(), width=8, height=2, bg="#ADD8E6", font="Century", relief="ridge", border=8, cursor="hand2")
+learnButton.pack(pady=10)
+quitButton = tk.Button(buttonFrame, text="Quit", command=welcome.quit, bg="#D2042D", font="Broadway", relief="ridge", border=8, cursor="hand2")
+quitButton.pack(pady=10)
+
+labelFrame = LabelFrame(root, bg="#119596")
+labelFrame.pack()
+buttonFrame = LabelFrame(root, padx=100, pady=10, bg="#119596")
+buttonFrame.pack(pady=30)
+
+label = Label(labelFrame, text="Enter the name of the company you'd like financial information on", font=('Century', 15, "bold"))
+label.pack(padx=20, pady=20)
+companyName = tk.Entry(buttonFrame, width=30)
+companyName.pack()
+searchButton = tk.Button(buttonFrame, text="Search", command=findCompany, bg="#ADD8E6", font="Century", relief="raised", border=8, cursor="hand2")
+searchButton.pack(pady=20)
+backButton = tk.Button(buttonFrame, text="Back", command=lambda: welcome.tkraise(), bg="#ADD8E6", font="Century", relief="ridge", border=8, cursor="hand2")
+backButton.pack(pady=20)
+
+label = Label(learn, text="User Guide", font=('Broadway', 15), bg="#40B5AD")
+label.pack(pady=10)
+label = Label(learn, text="1. Type in the name of a company\n\n2. Confirm if the selected company is the one you want to access\n\n3. Review companies financial data", font=('Century', 12), bg="#119596", relief="solid", borderwidth=2)
+label.pack()
+label = Label(learn, text="General Information", font=('Broadway', 15), bg="#40B5AD")
+label.pack(pady=10)
+label = Label(learn, text="This app was designed and developed by Rafey Islam as an internship project for Prosperity Networks\n\nFinancial data is obtained using API's & webscraping\n\nConsists of 4 functions that return annual reports, company stats, graphs, and financial ratios", font=('Century', 12), bg="#119596", bd=10, relief="solid", borderwidth=2)
+label.pack()
+backButton = tk.Button(learn, text="Back", command=lambda: welcome.tkraise(), bg="#ADD8E6", font="Century", relief="ridge", border=8, cursor="hand2")
+backButton.pack(pady=30)
+
+welcome.tkraise()
+window.geometry("775x400")
+window.title("Financial Insights Application")
+window.resizable(False, False)
+window.mainloop()
+
+
+
